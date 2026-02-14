@@ -1,9 +1,7 @@
 <script lang="ts">
-  import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
-  import type { SubmitFunction } from '@sveltejs/kit';
   import type { Opening, OpeningCategory } from '$lib/types';
 
   export let data: {
@@ -30,6 +28,7 @@
   let contact = '';
   let message = '';
   let error = '';
+  let isPosting = false;
 
   const formatPosted = (createdAt: string) => {
     const date = new Date(createdAt);
@@ -99,30 +98,51 @@
 
   $: selectedOpening = visible.find((opening) => opening.id === selectedOpeningId) ?? null;
 
-  const submitOpening: SubmitFunction = ({ cancel }) => {
+  const submitOpening = async (event: SubmitEvent) => {
+    event.preventDefault();
     message = '';
     error = '';
 
     if (!data.user) {
-      cancel();
       error = 'Discord authentication is required before posting a position.';
       return;
     }
 
-    return async ({ result }) => {
-      if (result.type === 'success') {
-        title = '';
-        description = '';
-        category = 'Business';
-        tags = '';
-        contact = '';
-        showAddPositionFormModal = false;
-        message = 'Position posted successfully.';
-        await invalidateAll();
-      } else {
+    if (isPosting) return;
+
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement)) {
+      error = 'Unable to submit form. Please refresh and try again.';
+      return;
+    }
+
+    isPosting = true;
+
+    try {
+      const formData = new FormData(form);
+      const response = await fetch('/api/openings', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
         error = 'Unable to post opening. Check your input and try again.';
+        return;
       }
-    };
+
+      title = '';
+      description = '';
+      category = 'Business';
+      tags = '';
+      contact = '';
+      showAddPositionFormModal = false;
+      message = 'Position posted successfully.';
+      await invalidateAll();
+    } catch {
+      error = 'Unable to post opening. Check your input and try again.';
+    } finally {
+      isPosting = false;
+    }
   };
 
   onMount(async () => {
@@ -423,7 +443,7 @@
         <button type="button" class="text-sm text-zinc-300 hover:text-zinc-100" on:click={closeAllModals}>Close</button>
       </div>
 
-      <form method="POST" action="/api/openings" use:enhance={submitOpening} class="mt-4 grid gap-3">
+      <form method="POST" action="/api/openings" on:submit={submitOpening} class="mt-4 grid gap-3">
         <label class="block">
           <span class="mb-1 block text-sm text-zinc-200">Title</span>
           <input bind:value={title} name="title" required maxlength="80" class="w-full rounded-md border-misfits-gray bg-zinc-900 text-zinc-100" />
@@ -477,9 +497,10 @@
 
         <button
           type="submit"
-          class="w-full rounded-md bg-misfits-red1 px-4 py-2 font-semibold text-white transition hover:bg-misfits-red2"
+          disabled={isPosting}
+          class="w-full rounded-md bg-misfits-red1 px-4 py-2 font-semibold text-white transition hover:bg-misfits-red2 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Publish Position
+          {isPosting ? 'Publishing...' : 'Publish Position'}
         </button>
       </form>
 
