@@ -29,6 +29,7 @@
   let message = '';
   let error = '';
   let isPosting = false;
+  let isClosing = false;
 
   const formatPosted = (createdAt: string) => {
     const date = new Date(createdAt);
@@ -142,6 +143,53 @@
       error = 'Unable to post opening. Check your input and try again.';
     } finally {
       isPosting = false;
+    }
+  };
+
+  const closeOpening = async () => {
+    message = '';
+    error = '';
+
+    if (!selectedOpening || !data.user) return;
+    if (selectedOpening.authorId !== data.user.id) {
+      error = 'Only the author can close this opening.';
+      return;
+    }
+
+    if (!browser || !window.confirm('Close this opening? It will be removed from the active board.')) {
+      return;
+    }
+
+    if (isClosing) return;
+    isClosing = true;
+
+    try {
+      const response = await fetch(`/api/openings/${selectedOpening.id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.status === 403) {
+        error = 'Only the author can close this opening.';
+        return;
+      }
+
+      if (response.status === 404) {
+        error = 'Opening not found.';
+        await invalidateAll();
+        return;
+      }
+
+      if (!response.ok) {
+        error = 'Unable to close opening right now. Please try again.';
+        return;
+      }
+
+      message = 'Opening closed successfully.';
+      await invalidateAll();
+    } catch {
+      error = 'Unable to close opening right now. Please try again.';
+    } finally {
+      isClosing = false;
     }
   };
 
@@ -262,6 +310,17 @@
               <p><span class="text-zinc-400">Posted by:</span> {selectedOpening.authorName}</p>
               <p><span class="text-zinc-400">Posted:</span> {formatPosted(selectedOpening.createdAt)}</p>
             </div>
+
+            {#if data.user && selectedOpening.authorId === data.user.id}
+              <button
+                type="button"
+                disabled={isClosing}
+                class="mt-4 w-full rounded-md border border-rose-500/60 bg-rose-900/30 px-4 py-2 text-sm font-semibold text-rose-200 transition hover:bg-rose-900/40 disabled:cursor-not-allowed disabled:opacity-60"
+                on:click={closeOpening}
+              >
+                {isClosing ? 'Closing...' : 'Close Opening'}
+              </button>
+            {/if}
           </article>
         {:else}
           <p class="mt-3 rounded-lg border border-zinc-700 bg-zinc-900/70 p-4 text-zinc-300">Select a listing to view details.</p>

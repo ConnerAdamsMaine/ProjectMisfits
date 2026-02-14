@@ -89,6 +89,7 @@ export async function getOpenings(): Promise<Opening[]> {
   }>(`
     SELECT id, title, description, category, tags, contact, author_id, author_name, created_at
     FROM openings
+    WHERE closed_at IS NULL
     ORDER BY created_at DESC
   `);
 
@@ -124,4 +125,37 @@ export async function addOpening(opening: Opening): Promise<void> {
       opening.createdAt
     ]
   );
+}
+
+export async function closeOpeningById(
+  openingId: string,
+  requesterId: string
+): Promise<'closed' | 'not_found' | 'forbidden' | 'already_closed'> {
+  await ensureDbSchema();
+
+  const existing = await query<{ author_id: string; closed_at: Date | null }>(
+    `
+      SELECT author_id, closed_at
+      FROM openings
+      WHERE id = $1
+      LIMIT 1
+    `,
+    [openingId]
+  );
+
+  const row = existing.rows[0];
+  if (!row) return 'not_found';
+  if (row.author_id !== requesterId) return 'forbidden';
+  if (row.closed_at) return 'already_closed';
+
+  await query(
+    `
+      UPDATE openings
+      SET closed_at = NOW()
+      WHERE id = $1
+    `,
+    [openingId]
+  );
+
+  return 'closed';
 }

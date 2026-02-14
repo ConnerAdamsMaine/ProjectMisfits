@@ -6,6 +6,7 @@ declare global {
         username: string;
         avatarUrl: string | null;
       } | null;
+      isAdmin: boolean;
     }
   }
 }

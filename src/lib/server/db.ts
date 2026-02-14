@@ -76,8 +76,14 @@ export async function ensureDbSchema(): Promise<void> {
           contact VARCHAR(120) NOT NULL,
           author_id TEXT NOT NULL REFERENCES discord_users(id) ON DELETE RESTRICT,
           author_name TEXT NOT NULL,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          closed_at TIMESTAMPTZ
         );
+      `);
+
+      await query(`
+        ALTER TABLE openings
+        ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ
       `);
 
       await query(`
@@ -86,6 +92,55 @@ export async function ensureDbSchema(): Promise<void> {
 
       await query(`
         CREATE INDEX IF NOT EXISTS openings_category_idx ON openings(category);
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS openings_closed_at_idx ON openings(closed_at);
+      `);
+
+      await query(`
+        CREATE TABLE IF NOT EXISTS user_permissions (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id TEXT NOT NULL REFERENCES discord_users(id) ON DELETE CASCADE,
+          resource TEXT NOT NULL,
+          action TEXT NOT NULL,
+          granted_by TEXT REFERENCES discord_users(id),
+          granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          expires_at TIMESTAMPTZ,
+          UNIQUE(user_id, resource, action)
+        );
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS user_permissions_user_id_idx ON user_permissions(user_id);
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS user_permissions_resource_idx ON user_permissions(resource, action);
+      `);
+
+      await query(`
+        CREATE TABLE IF NOT EXISTS api_keys (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          key_hash TEXT NOT NULL UNIQUE,
+          key_type TEXT NOT NULL CHECK (key_type IN ('super', 'admin')),
+          user_id TEXT REFERENCES discord_users(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          permissions JSONB NOT NULL DEFAULT '[]'::jsonb,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          expires_at TIMESTAMPTZ,
+          last_used_at TIMESTAMPTZ,
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          created_by TEXT REFERENCES discord_users(id)
+        );
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS api_keys_active_idx ON api_keys(is_active) WHERE is_active = TRUE;
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS api_keys_user_id_idx ON api_keys(user_id) WHERE user_id IS NOT NULL;
       `);
     })();
   }

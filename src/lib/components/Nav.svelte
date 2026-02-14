@@ -1,13 +1,15 @@
 <script lang="ts">
   import { page } from '$app/stores';
 
-  const links = [
+  const baseLinks = [
     { href: '/', label: 'Home' },
     { href: '/showcases', label: 'Showcases' },
     { href: '/departments', label: 'Departments' },
     { href: '/rules', label: 'Rules' },
     { href: '/tos', label: 'ToS' }
   ];
+
+  $: links = $page.data?.isAdmin ? [...baseLinks, { href: '/admin', label: 'Admin' }] : baseLinks;
 </script>
 
 <header class="sticky top-0 z-40 border-b border-misfits-gray/70 bg-misfits-black/85 backdrop-blur">
