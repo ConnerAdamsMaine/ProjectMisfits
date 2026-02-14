@@ -1,0 +1,32 @@
+{
+  "name": "project-misfits-website",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "svelte-kit sync && node ./node_modules/vite/bin/vite.js dev",
+    "build": "svelte-kit sync && node ./node_modules/vite/bin/vite.js build",
+    "preview": "svelte-kit sync && node ./node_modules/vite/bin/vite.js preview",
+    "start": "node build",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-node": "^5.5.3",
+    "@sveltejs/kit": "^2.51.0",
+    "@tailwindcss/forms": "^0.5.10",
+    "@types/node": "^22.13.10",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.3",
+    "prettier": "^3.5.2",
+    "prettier-plugin-svelte": "^3.3.3",
+    "svelte": "^5.39.0",
+    "svelte-check": "^4.1.4",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.2",
+    "vite": "6.4.1"
+  },
+  "dependencies": {
+    "gsap": "^3.12.7",
+    "zod": "^3.24.2"
+  }
+}
