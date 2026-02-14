@@ -1,4 +1,5 @@
 import { exchangeCodeForUser, validateState } from '$lib/server/discord-auth';
+import { createSessionForUser, getSessionMaxAgeSeconds } from '$lib/server/session-store';
 import { redirect, type RequestHandler } from '@sveltejs/kit';
 
 const secure = process.env.NODE_ENV === 'production';
@@ -13,13 +14,14 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 
   try {
     const user = await exchangeCodeForUser(code, url.origin);
+    const sessionId = await createSessionForUser(user);
 
-    cookies.set('pm_session', JSON.stringify(user), {
+    cookies.set('pm_session', sessionId, {
       path: '/',
       httpOnly: true,
       secure,
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7
+      maxAge: getSessionMaxAgeSeconds()
     });
 
     throw redirect(302, '/departments?auth=success');

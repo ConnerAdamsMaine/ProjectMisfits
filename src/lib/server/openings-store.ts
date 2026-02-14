@@ -1,55 +1,127 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import { defaultOpenings } from '$lib/data/default-openings';
+import { ensureDbSchema, query } from '$lib/server/db';
 import type { Opening } from '$lib/types';
 
-const dataDir = path.resolve(process.cwd(), 'data');
-const filePath = path.join(dataDir, 'openings.json');
+let defaultSeedPromise: Promise<void> | null = null;
 
-async function ensureStore(): Promise<void> {
-  await mkdir(dataDir, { recursive: true });
+async function seedDefaultsIfNeeded(): Promise<void> {
+  if (!defaultSeedPromise) {
+    defaultSeedPromise = (async () => {
+      await ensureDbSchema();
 
-  try {
-    await readFile(filePath, 'utf8');
-  } catch {
-    await writeFile(filePath, JSON.stringify(defaultOpenings, null, 2), 'utf8');
+      const countResult = await query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM openings`);
+      const hasRows = Number(countResult.rows[0]?.count ?? '0') > 0;
+
+      if (hasRows || defaultOpenings.length === 0) return;
+
+      for (const opening of defaultOpenings) {
+        await query(
+          `
+            INSERT INTO openings (
+              id,
+              title,
+              description,
+              category,
+              tags,
+              contact,
+              author_id,
+              author_name,
+              created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            ON CONFLICT (id) DO NOTHING
+          `,
+          [
+            opening.id,
+            opening.title,
+            opening.description,
+            opening.category,
+            opening.tags,
+            opening.contact,
+            opening.authorId,
+            opening.authorName,
+            opening.createdAt
+          ]
+        );
+      }
+    })();
   }
+
+  await defaultSeedPromise;
+}
+
+function mapRowToOpening(row: {
+  id: string;
+  title: string;
+  description: string;
+  category: Opening['category'];
+  tags: string[];
+  contact: string;
+  author_id: string;
+  author_name: string;
+  created_at: Date;
+}): Opening {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    category: row.category,
+    tags: row.tags,
+    contact: row.contact,
+    authorId: row.author_id,
+    authorName: row.author_name,
+    createdAt: row.created_at.toISOString()
+  };
 }
 
 export async function getOpenings(): Promise<Opening[]> {
-  await ensureStore();
-  const raw = await readFile(filePath, 'utf8');
+  await seedDefaultsIfNeeded();
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    parsed = [];
-  }
+  const result = await query<{
+    id: string;
+    title: string;
+    description: string;
+    category: Opening['category'];
+    tags: string[];
+    contact: string;
+    author_id: string;
+    author_name: string;
+    created_at: Date;
+  }>(`
+    SELECT id, title, description, category, tags, contact, author_id, author_name, created_at
+    FROM openings
+    ORDER BY created_at DESC
+  `);
 
-  if (!Array.isArray(parsed)) return [];
-
-  return parsed
-    .filter((item): item is Opening => {
-      return (
-        typeof item === 'object' &&
-        item !== null &&
-        typeof (item as Opening).id === 'string' &&
-        typeof (item as Opening).title === 'string' &&
-        typeof (item as Opening).description === 'string' &&
-        typeof (item as Opening).category === 'string' &&
-        Array.isArray((item as Opening).tags) &&
-        typeof (item as Opening).contact === 'string' &&
-        typeof (item as Opening).authorId === 'string' &&
-        typeof (item as Opening).authorName === 'string' &&
-        typeof (item as Opening).createdAt === 'string'
-      );
-    })
-    .sort((a, b) => Number(new Date(b.createdAt)) - Number(new Date(a.createdAt)));
+  return result.rows.map(mapRowToOpening);
 }
 
 export async function addOpening(opening: Opening): Promise<void> {
-  const current = await getOpenings();
-  const updated = [opening, ...current];
-  await writeFile(filePath, JSON.stringify(updated, null, 2), 'utf8');
+  await ensureDbSchema();
+
+  await query(
+    `
+      INSERT INTO openings (
+        id,
+        title,
+        description,
+        category,
+        tags,
+        contact,
+        author_id,
+        author_name,
+        created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `,
+    [
+      opening.id,
+      opening.title,
+      opening.description,
+      opening.category,
+      opening.tags,
+      opening.contact,
+      opening.authorId,
+      opening.authorName,
+      opening.createdAt
+    ]
+  );
 }

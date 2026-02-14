@@ -34,10 +34,14 @@ Production-oriented SvelteKit site for Project Misfits with TailwindCSS, Vite, a
    - `DISCORD_CLIENT_ID`
    - `DISCORD_CLIENT_SECRET`
    - optional `DISCORD_REDIRECT_URI`
+   - `DATABASE_URL`
+   - optional `DATABASE_SSL=true` when SSL is required by your provider
 3. Restart the server after updating env vars.
 
 ## Data Storage
 
-Openings are persisted in `data/openings.json`.
+Openings and Discord login sessions are persisted in PostgreSQL.
 
-For horizontal scaling or multi-instance deployment, replace the file-backed store in `src/lib/server/openings-store.ts` with a database backend.
+- Schema bootstrap is automatic at runtime from `src/lib/server/db.ts`.
+- Tables used: `discord_users`, `auth_sessions`, and `openings`.
+- The previous file-backed `data/openings.json` storage is no longer used.

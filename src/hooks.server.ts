@@ -1,27 +1,20 @@
 import type { Handle } from '@sveltejs/kit';
+import { getUserBySessionId } from '$lib/server/session-store';
 
 const secure = process.env.NODE_ENV === 'production';
 
 export const handle: Handle = async ({ event, resolve }) => {
-  const rawSession = event.cookies.get('pm_session');
+  const sessionId = event.cookies.get('pm_session');
 
-  if (rawSession) {
+  if (sessionId) {
     try {
-      const session = JSON.parse(rawSession) as {
-        id?: string;
-        username?: string;
-        avatarUrl?: string | null;
-      };
+      const user = await getUserBySessionId(sessionId);
 
-      if (session.id && session.username) {
-        event.locals.user = {
-          id: session.id,
-          username: session.username,
-          avatarUrl: session.avatarUrl ?? null
-        };
-      } else {
-        event.locals.user = null;
+      if (!user) {
+        event.cookies.delete('pm_session', { path: '/', secure });
       }
+
+      event.locals.user = user;
     } catch {
       event.locals.user = null;
       event.cookies.delete('pm_session', {
