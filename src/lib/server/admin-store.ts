@@ -78,6 +78,32 @@ export async function userHasAdminAccess(userId: string): Promise<boolean> {
   return Boolean(result.rows[0]?.allowed);
 }
 
+export async function userHasPermission(
+  userId: string | null,
+  resource: string,
+  action: string
+): Promise<boolean> {
+  if (!userId) return false;
+
+  await ensureDbSchema();
+
+  const result = await query<{ allowed: boolean }>(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM user_permissions
+        WHERE user_id = $1
+          AND resource = $2
+          AND action IN ($3, 'admin')
+          AND (expires_at IS NULL OR expires_at > NOW())
+      ) AS allowed
+    `,
+    [userId, resource, action]
+  );
+
+  return Boolean(result.rows[0]?.allowed);
+}
+
 export async function userCanViewPage(userId: string | null, path: string): Promise<boolean> {
   await ensureDbSchema();
 
@@ -90,7 +116,7 @@ export async function userCanViewPage(userId: string | null, path: string): Prom
         SELECT 1
         FROM user_permissions
         WHERE resource = $1
-          AND action = 'view'
+          AND action IN ('view', 'read')
           AND (expires_at IS NULL OR expires_at > NOW())
       ) AS requires_permission
     `,
@@ -108,7 +134,7 @@ export async function userCanViewPage(userId: string | null, path: string): Prom
         FROM user_permissions
         WHERE user_id = $1
           AND resource = $2
-          AND action = 'view'
+          AND action IN ('view', 'read')
           AND (expires_at IS NULL OR expires_at > NOW())
       ) AS allowed
     `,

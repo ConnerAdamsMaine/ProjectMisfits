@@ -1,4 +1,12 @@
 <script lang="ts">
+  export let data: {
+    content: {
+      title?: string;
+      description?: string;
+      rulesText?: string;
+    };
+  };
+
   const rulesText = `OFFICIAL RULES
 
 Last revised on 1/19/25 by Managament
@@ -543,10 +551,10 @@ All punishments are final.`;
 </svelte:head>
 
 <section class="mx-auto max-w-5xl px-4 py-14 sm:px-6">
-  <h1 class="text-4xl font-black uppercase tracking-wide text-zinc-100">Official Rules</h1>
-  <p class="mt-3 text-zinc-300">Complete server rulebook and punishment policy.</p>
+  <h1 class="text-4xl font-black uppercase tracking-wide text-zinc-100">{data.content.title ?? 'Official Rules'}</h1>
+  <p class="mt-3 text-zinc-300">{data.content.description ?? 'Complete server rulebook and punishment policy.'}</p>
 
   <article class="mt-8 rounded-xl border border-misfits-gray bg-misfits-charcoal/85 p-5 shadow-panel sm:p-7">
-    <pre class="whitespace-pre-wrap font-sans text-sm leading-7 text-zinc-200 sm:text-base">{rulesText}</pre>
+    <pre class="whitespace-pre-wrap font-sans text-sm leading-7 text-zinc-200 sm:text-base">{data.content.rulesText ?? rulesText}</pre>
   </article>
 </section>

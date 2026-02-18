@@ -9,6 +9,12 @@
     categories: readonly OpeningCategory[];
     availableTags: string[];
     user: { id: string; username: string; avatarUrl: string | null } | null;
+    content: {
+      title: string;
+      description: string;
+      searchPlaceholder: string;
+      addPositionLabel: string;
+    };
   };
 
   let selectedCategory: OpeningCategory | 'All' = 'All';
@@ -216,14 +222,14 @@
 
 <section class="mx-auto max-w-7xl px-4 py-10 sm:px-6">
   <header class="indeed-panel rounded-2xl border border-misfits-gray bg-misfits-charcoal/90 p-5 shadow-panel">
-    <h1 class="text-3xl font-black uppercase tracking-wide text-zinc-100 sm:text-4xl">Businesses & Departments</h1>
-    <p class="mt-2 text-zinc-300">Search roles, review details, and post new openings in one workflow.</p>
+    <h1 class="text-3xl font-black uppercase tracking-wide text-zinc-100 sm:text-4xl">{data.content.title}</h1>
+    <p class="mt-2 text-zinc-300">{data.content.description}</p>
 
     <div class="mt-5 grid gap-3 md:grid-cols-[1fr_auto_auto]">
       <input
         bind:value={searchTerm}
         type="search"
-        placeholder="Job title, tag, category, or contact"
+        placeholder={data.content.searchPlaceholder}
         class="w-full rounded-md border-misfits-gray bg-zinc-900 text-zinc-100"
       />
 
@@ -240,7 +246,7 @@
         class="rounded-md bg-misfits-red1 px-4 py-2 font-semibold text-white transition hover:bg-misfits-red2"
         on:click={openAddPosition}
       >
-        Add Position
+        {data.content.addPositionLabel}
       </button>
     </div>
 

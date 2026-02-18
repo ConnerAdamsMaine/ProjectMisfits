@@ -1,5 +1,15 @@
 <script lang="ts">
-  const sections = [
+  export let data: {
+    content: {
+      title: string;
+      description: string;
+      sections: { title: string; body: string; links?: string[] }[];
+      footerPrimary: string;
+      footerSecondary: string;
+    };
+  };
+
+  const sections: { title: string; body: string; links?: string[] }[] = [
     {
       title: 'Age Restrictions',
       body: 'This server is strictly 18+, and all members must be of legal age to remain within our server, and participate within any of our events or leagues. Age verification may be required.'
@@ -40,39 +50,24 @@
 </svelte:head>
 
 <section class="mx-auto max-w-4xl px-4 py-14 sm:px-6">
-  <h1 class="text-4xl font-black uppercase tracking-wide text-zinc-100">Terms of Service</h1>
-  <p class="mt-3 text-zinc-300">Read and follow these terms before participating in Project Misfits.</p>
+  <h1 class="text-4xl font-black uppercase tracking-wide text-zinc-100">{data.content.title}</h1>
+  <p class="mt-3 text-zinc-300">{data.content.description}</p>
 
   <div class="mt-8 space-y-4">
-    {#each sections as section}
+    {#each (data.content.sections?.length ? data.content.sections : sections) as section}
       <details class="rounded-lg border border-misfits-gray bg-misfits-charcoal/80 p-5 open:bg-misfits-charcoal" open>
         <summary class="cursor-pointer list-none text-lg font-semibold text-zinc-100">{section.title}</summary>
         <p class="mt-3 leading-7 text-zinc-300">{section.body}</p>
 
-        {#if section.title === 'Discord Terms and Guidelines'}
+        {#if section.links?.length}
           <div class="mt-3 space-y-2 text-sm">
-            <p>
-              <span class="font-semibold text-zinc-200">TOS:</span>
-              <a
-                class="text-misfits-red2 underline hover:text-red-300"
-                href="https://discord.com/terms"
-                target="_blank"
-                rel="noreferrer"
-              >
-                https://discord.com/terms
-              </a>
-            </p>
-            <p>
-              <span class="font-semibold text-zinc-200">Guidelines:</span>
-              <a
-                class="text-misfits-red2 underline hover:text-red-300"
-                href="https://discord.com/guidelines"
-                target="_blank"
-                rel="noreferrer"
-              >
-                https://discord.com/guidelines
-              </a>
-            </p>
+            {#each section.links as link}
+              <p>
+                <a class="text-misfits-red2 underline hover:text-red-300" href={link} target="_blank" rel="noreferrer">
+                  {link}
+                </a>
+              </p>
+            {/each}
           </div>
         {/if}
       </details>
@@ -81,10 +76,10 @@
 
   <div class="mt-8 rounded-lg border border-misfits-gray bg-zinc-900/80 p-5">
     <p class="leading-7 text-zinc-200">
-      Failing to adhere to any of the above listed guidelines could result in temporary, even permanent, removal from the server.
+      {data.content.footerPrimary}
     </p>
     <p class="mt-3 leading-7 text-zinc-300">
-      If you have any questions or concerns, or need to report one of the above being broken, please open a support ticket.
+      {data.content.footerSecondary}
     </p>
   </div>
 </section>

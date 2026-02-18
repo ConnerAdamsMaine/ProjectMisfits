@@ -77,8 +77,14 @@ export async function ensureDbSchema(): Promise<void> {
           author_id TEXT NOT NULL REFERENCES discord_users(id) ON DELETE RESTRICT,
           author_name TEXT NOT NULL,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           closed_at TIMESTAMPTZ
         );
+      `);
+
+      await query(`
+        ALTER TABLE openings
+        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       `);
 
       await query(`
@@ -96,6 +102,10 @@ export async function ensureDbSchema(): Promise<void> {
 
       await query(`
         CREATE INDEX IF NOT EXISTS openings_closed_at_idx ON openings(closed_at);
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS openings_updated_at_idx ON openings(updated_at DESC);
       `);
 
       await query(`
@@ -141,6 +151,34 @@ export async function ensureDbSchema(): Promise<void> {
 
       await query(`
         CREATE INDEX IF NOT EXISTS api_keys_user_id_idx ON api_keys(user_id) WHERE user_id IS NOT NULL;
+      `);
+
+      await query(`
+        CREATE TABLE IF NOT EXISTS page_content (
+          page_path TEXT PRIMARY KEY,
+          content JSONB NOT NULL DEFAULT '{}'::jsonb,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_by TEXT REFERENCES discord_users(id)
+        );
+      `);
+
+      await query(`
+        CREATE TABLE IF NOT EXISTS showcase_items (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          image_url TEXT NOT NULL UNIQUE,
+          category TEXT NOT NULL DEFAULT 'Uncategorized',
+          title TEXT,
+          description TEXT,
+          owner_id TEXT REFERENCES discord_users(id) ON DELETE SET NULL,
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          created_by TEXT REFERENCES discord_users(id) ON DELETE SET NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
+      await query(`
+        CREATE INDEX IF NOT EXISTS showcase_items_category_idx ON showcase_items(category);
       `);
     })();
   }

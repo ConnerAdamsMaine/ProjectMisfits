@@ -73,6 +73,26 @@ function mapRowToOpening(row: {
   };
 }
 
+function mapAdminRowToOpening(row: {
+  id: string;
+  title: string;
+  description: string;
+  category: Opening['category'];
+  tags: string[];
+  contact: string;
+  author_id: string;
+  author_name: string;
+  created_at: Date;
+  closed_at: Date | null;
+  updated_at: Date;
+}): Opening & { closedAt: string | null; updatedAt: string } {
+  return {
+    ...mapRowToOpening(row),
+    closedAt: row.closed_at ? row.closed_at.toISOString() : null,
+    updatedAt: row.updated_at.toISOString()
+  };
+}
+
 export async function getOpenings(): Promise<Opening[]> {
   await seedDefaultsIfNeeded();
 
@@ -108,10 +128,11 @@ export async function addOpening(opening: Opening): Promise<void> {
         category,
         tags,
         contact,
-        author_id,
-        author_name,
-        created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          author_id,
+          author_name,
+          created_at,
+          updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
     `,
     [
       opening.id,
@@ -151,11 +172,133 @@ export async function closeOpeningById(
   await query(
     `
       UPDATE openings
-      SET closed_at = NOW()
+      SET closed_at = NOW(), updated_at = NOW()
       WHERE id = $1
     `,
     [openingId]
   );
 
   return 'closed';
+}
+
+export async function listAllOpenings(): Promise<(Opening & { closedAt: string | null; updatedAt: string })[]> {
+  await ensureDbSchema();
+
+  const result = await query<{
+    id: string;
+    title: string;
+    description: string;
+    category: Opening['category'];
+    tags: string[];
+    contact: string;
+    author_id: string;
+    author_name: string;
+    created_at: Date;
+    closed_at: Date | null;
+    updated_at: Date;
+  }>(`
+    SELECT
+      id,
+      title,
+      description,
+      category,
+      tags,
+      contact,
+      author_id,
+      author_name,
+      created_at,
+      closed_at,
+      updated_at
+    FROM openings
+    ORDER BY created_at DESC
+  `);
+
+  return result.rows.map(mapAdminRowToOpening);
+}
+
+export async function updateOpeningById(
+  openingId: string,
+  patch: Partial<Pick<Opening, 'title' | 'description' | 'category' | 'tags' | 'contact'>>
+): Promise<'updated' | 'not_found'> {
+  await ensureDbSchema();
+
+  const existing = await query<{ id: string }>(
+    `
+      SELECT id
+      FROM openings
+      WHERE id = $1
+      LIMIT 1
+    `,
+    [openingId]
+  );
+
+  if (!existing.rows[0]) return 'not_found';
+
+  await query(
+    `
+      UPDATE openings
+      SET
+        title = COALESCE($2, title),
+        description = COALESCE($3, description),
+        category = COALESCE($4, category),
+        tags = COALESCE($5, tags),
+        contact = COALESCE($6, contact),
+        updated_at = NOW()
+      WHERE id = $1
+    `,
+    [
+      openingId,
+      patch.title ?? null,
+      patch.description ?? null,
+      patch.category ?? null,
+      patch.tags ?? null,
+      patch.contact ?? null
+    ]
+  );
+
+  return 'updated';
+}
+
+export async function deleteOpeningById(openingId: string): Promise<'deleted' | 'not_found'> {
+  await ensureDbSchema();
+
+  const result = await query<{ id: string }>(
+    `
+      DELETE FROM openings
+      WHERE id = $1
+      RETURNING id
+    `,
+    [openingId]
+  );
+
+  return result.rows[0] ? 'deleted' : 'not_found';
+}
+
+export async function transferOpeningOwnership(
+  openingId: string,
+  newOwnerId: string,
+  newOwnerName: string
+): Promise<'transferred' | 'not_found'> {
+  await ensureDbSchema();
+
+  await query(
+    `
+      INSERT INTO discord_users (id, username, avatar_url)
+      VALUES ($1, $2, NULL)
+      ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username, updated_at = NOW()
+    `,
+    [newOwnerId, newOwnerName]
+  );
+
+  const result = await query<{ id: string }>(
+    `
+      UPDATE openings
+      SET author_id = $2, author_name = $3, updated_at = NOW()
+      WHERE id = $1
+      RETURNING id
+    `,
+    [openingId, newOwnerId, newOwnerName]
+  );
+
+  return result.rows[0] ? 'transferred' : 'not_found';
 }

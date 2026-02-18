@@ -1,25 +1,33 @@
-import { readdir } from 'node:fs/promises';
-import path from 'node:path';
+import { defaultShowcasesContent } from '$lib/data/site-defaults';
+import { getPageContent } from '$lib/server/content-store';
+import { listLocalShowcaseImageUrls } from '$lib/server/showcase-files';
+import { buildShowcaseDisplayItems, listShowcaseItems } from '$lib/server/showcase-store';
 import type { PageServerLoad } from './$types';
 
-const allowedExt = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
-
 export const load: PageServerLoad = async () => {
-  const showcaseDir = path.resolve(process.cwd(), 'assets/showcase');
+  const [localImages, dbItems, content] = await Promise.all([
+    listLocalShowcaseImageUrls(),
+    listShowcaseItems(false),
+    getPageContent('/showcases', defaultShowcasesContent)
+  ]);
 
-  let localImages: string[] = [];
+  const items = buildShowcaseDisplayItems(localImages, dbItems);
+  const grouped = new Map<string, typeof items>();
 
-  try {
-    const entries = await readdir(showcaseDir, { withFileTypes: true });
-    localImages = entries
-      .filter((entry) => entry.isFile())
-      .map((entry) => entry.name)
-      .filter((name) => allowedExt.has(path.extname(name).toLowerCase()))
-      .sort((a, b) => a.localeCompare(b))
-      .map((name) => `/api/showcase/${encodeURIComponent(name)}`);
-  } catch {
-    localImages = [];
+  for (const item of items) {
+    const category = item.category.trim() || 'Uncategorized';
+    const group = grouped.get(category) ?? [];
+    group.push(item);
+    grouped.set(category, group);
   }
 
-  return { localImages };
+  return {
+    content,
+    categories: [...grouped.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([name, entries]) => ({
+        name,
+        items: entries.sort((a, b) => a.imageUrl.localeCompare(b.imageUrl))
+      }))
+  };
 };
